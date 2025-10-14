@@ -1,3 +1,4 @@
+// app/api/send-email/route.ts - UPDATED
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
@@ -24,30 +25,85 @@ export async function POST(request: Request) {
             );
         }
 
-        const { to, subject, htmlBody, resumePath } = await request.json();
+        const {
+            to,
+            subject,
+            htmlBody,
+            resumePath,
+            companyName,
+            jobTitle,
+            caseNumber,
+            lcaData
+        } = await request.json();
 
-        // Note: In production, user needs to provide their email credentials
-        // This is a simplified version - you'd need proper OAuth2 setup for Gmail
+        // Extract domain from recipient email
+        const employerDomain = to.split('@')[1] || '';
+
+        // Send email
         const transporter = nodemailer.createTransport({
             host: process.env.EMAIL_HOST,
             port: parseInt(process.env.EMAIL_PORT || '587'),
             secure: false,
             auth: {
                 user: payload.email as string,
-                pass: process.env.EMAIL_PASSWORD, // User-specific password from settings
+                pass: process.env.EMAIL_PASSWORD,
             },
         });
 
-        await transporter.sendMail({
-            from: payload.email as string,
-            to,
-            subject,
-            html: htmlBody,
-            // Note: File attachments need to be handled differently in production
-            // You'd need to upload the file to server first
-        });
+        try {
+            await transporter.sendMail({
+                from: payload.email as string,
+                to,
+                subject,
+                html: htmlBody,
+            });
 
-        return NextResponse.json({ message: 'Email sent successfully' });
+            // Track application after successful send
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/applications/track`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cookie': `token=${token}`
+                },
+                body: JSON.stringify({
+                    companyName,
+                    jobTitle,
+                    employerDomain,
+                    recipientEmail: to,
+                    caseNumber,
+                    emailSubject: subject,
+                    emailBody: htmlBody,
+                    status: 'sent',
+                    lcaData
+                })
+            });
+
+            return NextResponse.json({
+                message: 'Email sent and tracked successfully'
+            });
+        } catch (emailError) {
+            // Track failed application
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/applications/track`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cookie': `token=${token}`
+                },
+                body: JSON.stringify({
+                    companyName,
+                    jobTitle,
+                    employerDomain,
+                    recipientEmail: to,
+                    caseNumber,
+                    emailSubject: subject,
+                    emailBody: htmlBody,
+                    status: 'failed',
+                    lcaData
+                })
+            });
+
+            throw emailError;
+        }
     } catch (error) {
         console.error('Error sending email:', error);
         return NextResponse.json(
