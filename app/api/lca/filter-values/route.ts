@@ -1,4 +1,4 @@
-// app/api/lca/filter-values/route.ts - CSV VERSION (FAST!)
+// app/api/lca/filter-values/route.ts - OPTIMIZED
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
@@ -7,112 +7,105 @@ import Papa from 'papaparse';
 export const runtime = 'nodejs';
 
 let cachedFilterValues: any = null;
+let isLoading = false;
 
 export async function GET(request: Request) {
-    try {
-        console.log('🔍 Loading filter values from CSV...');
+    // Return immediately if already cached
+    if (cachedFilterValues) {
+        return NextResponse.json(cachedFilterValues);
+    }
 
-        // Return cached filter values if available
+    // Prevent concurrent loading
+    if (isLoading) {
+        // Wait a bit and check again
+        await new Promise(resolve => setTimeout(resolve, 1000));
         if (cachedFilterValues) {
-            console.log('✅ Returning cached filter values');
             return NextResponse.json(cachedFilterValues);
         }
+    }
 
-        // Try multiple file paths
-        const possiblePaths = [
-            path.join(process.cwd(), 'data', 'lca_data.csv'),
-            path.join(process.cwd(), 'data', 'subset_lca_data.csv'),
-        ];
+    isLoading = true;
 
-        let filePath: string | null = null;
-        for (const p of possiblePaths) {
-            if (fs.existsSync(p)) {
-                filePath = p;
-                console.log('✅ Found CSV file at:', filePath);
-                break;
-            }
-        }
+    try {
+        console.log('🔍 Loading filter values (optimized)...');
 
-        if (!filePath) {
-            console.error('❌ CSV file not found');
+        const filePath = path.join(process.cwd(), 'data', 'lca_data.csv');
+
+        if (!fs.existsSync(filePath)) {
             return NextResponse.json(
-                { error: 'CSV file not found. Please convert Excel to CSV.' },
+                { error: 'CSV file not found' },
                 { status: 404 }
             );
         }
 
-        console.log('📖 Reading CSV file...');
+        // For very large files, we can sample instead of processing all rows
         const fileContent = fs.readFileSync(filePath, 'utf8');
+        const lines = fileContent.split('\n');
 
-        console.log('📝 Parsing CSV...');
-        const parseResult = Papa.parse(fileContent, {
+        // Sample strategy: take every Nth row for very large files
+        const totalLines = lines.length;
+        const shouldSample = totalLines > 100000;
+        const sampleRate = shouldSample ? 3 : 1; // Take every 3rd row if sampling
+
+        let sampled = '';
+        if (shouldSample) {
+            sampled = lines[0] + '\n'; // Header
+            for (let i = 1; i < totalLines; i += sampleRate) {
+                sampled += lines[i] + '\n';
+            }
+            console.log(`📊 Sampling: ${Math.floor(totalLines / sampleRate)} of ${totalLines} rows`);
+        } else {
+            sampled = fileContent;
+        }
+
+        const parseResult = Papa.parse(sampled, {
             header: true,
-            dynamicTyping: true,
             skipEmptyLines: true,
             delimitersToGuess: [',', '\t', '|', ';']
         });
 
         const jsonData = parseResult.data;
 
-        if (jsonData.length === 0) {
-            return NextResponse.json(
-                { error: 'CSV file contains no data' },
-                { status: 404 }
-            );
-        }
-
-        // Clean up column names
-        const cleanedData = jsonData.map(row => {
-            const cleanRow: any = {};
-            Object.keys(row).forEach(key => {
-                const cleanKey = key.trim().toUpperCase();
-                cleanRow[cleanKey] = row[key];
-            });
-            return cleanRow;
-        });
-
-        console.log('📊 Processing', cleanedData.length, 'records for filter values');
-
-        // Extract unique values for each filterable column
+        // Filterable columns
         const filterableColumns = [
             'CASE_STATUS',
             'VISA_CLASS',
-            'EMPLOYER_NAME',
             'JOB_TITLE',
             'SOC_TITLE',
             'EMPLOYER_STATE',
             'EMPLOYER_CITY',
-            'WAGE_UNIT_OF_PAY',
             'PW_WAGE_LEVEL',
             'FULL_TIME_POSITION',
-            'H_1B_DEPENDENT',
-            'WILLFUL_VIOLATOR',
-            'NAICS_CODE',
-            'NEW_EMPLOYMENT',
-            'CONTINUED_EMPLOYMENT',
-            'CHANGE_PREVIOUS_EMPLOYMENT'
+            'H_1B_DEPENDENT'
         ];
 
         const filterValues: any = {};
 
+        // Use Set for faster unique value collection
         filterableColumns.forEach(column => {
             const uniqueValues = new Set<string>();
-            cleanedData.forEach((row: any) => {
-                const value = row[column];
+
+            jsonData.forEach((row: any) => {
+                const value = row[column] || row[column.toLowerCase()] || row[column.toUpperCase()];
                 if (value !== undefined && value !== null && value !== '') {
-                    uniqueValues.add(String(value));
+                    uniqueValues.add(String(value).trim());
                 }
             });
-            filterValues[column] = Array.from(uniqueValues).sort();
-            if (filterValues[column].length > 0) {
-                console.log(`✅ ${column}: ${filterValues[column].length} unique values`);
-            }
+
+            // Sort and limit to top N values for very large lists
+            const sortedValues = Array.from(uniqueValues).sort();
+
+            // For fields with too many unique values, take top 500
+            filterValues[column] = sortedValues.length > 500
+                ? sortedValues.slice(0, 500)
+                : sortedValues;
+
+            console.log(`✅ ${column}: ${filterValues[column].length} unique values`);
         });
 
-        // Cache the filter values
         cachedFilterValues = filterValues;
-
         return NextResponse.json(filterValues);
+
     } catch (error: any) {
         console.error('❌ Error loading filter values:', error);
         return NextResponse.json(
@@ -122,5 +115,7 @@ export async function GET(request: Request) {
             },
             { status: 500 }
         );
+    } finally {
+        isLoading = false;
     }
 }
