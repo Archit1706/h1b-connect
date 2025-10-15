@@ -29,6 +29,7 @@ export default function Navbar() {
                                 {pathname !== '/email/test' && (
                                     <Link
                                         href="/email/test"
+                                        target="_blank"
                                         className="text-gray-800 font-medium hover:text-blue-600 transition-colors"
                                     >
                                         Test Email

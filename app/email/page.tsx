@@ -93,6 +93,7 @@ export default function EmailPage() {
     const [resume, setResume] = useState<File | null>(null);
     const [resumeBase64, setResumeBase64] = useState<string>('');
     const [coverLetter, setCoverLetter] = useState('');
+    const [isHtml, setIsHtml] = useState(true);
     const [emailSubject, setEmailSubject] = useState('Application for {jobTitle} at {company}');
     const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
     const [sendingProgress, setSendingProgress] = useState<{ total: number, sent: number, failed: number } | null>(null);
@@ -204,6 +205,54 @@ export default function EmailPage() {
         }
     };
 
+    // Auto-detect if content is HTML
+    const detectHtml = (text: string): boolean => {
+        const htmlPattern = /<\/?[a-z][\s\S]*>/i;
+        return htmlPattern.test(text);
+    };
+
+    const handleCoverLetterChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newBody = e.target.value;
+        setCoverLetter(newBody);
+
+        // Auto-detect HTML
+        if (detectHtml(newBody)) {
+            setIsHtml(true);
+        }
+    };
+
+    const formatEmailBody = (body: string, isHtmlContent: boolean): string => {
+        if (isHtmlContent) {
+            // If it's already complete HTML (has <html> tag), use as-is
+            if (body.trim().toLowerCase().startsWith('<html') || body.trim().toLowerCase().startsWith('<!doctype')) {
+                return body;
+            }
+            // Otherwise, wrap in minimal HTML structure
+            return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    ${body}
+</body>
+</html>`;
+        } else {
+            // Plain text - convert to HTML with line breaks
+            return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">
+    <div style="white-space: pre-wrap;">${body.replace(/\n/g, '<br>')}</div>
+</body>
+</html>`;
+        }
+    };
+
     const toggleCompanySelection = (caseNumber: string) => {
         // Don't allow selecting if already applied
         if (appliedCaseNumbers.has(caseNumber)) {
@@ -289,15 +338,16 @@ export default function EmailPage() {
                     caseNumber: record.CASE_NUMBER
                 }));
 
+            // Format the email body properly
+            const formattedBody = formatEmailBody(coverLetter, isHtml);
+
             const res = await fetch('/api/send-bulk-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     recipients,
                     subject: emailSubject,
-                    htmlBody: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                        ${coverLetter.replace(/\n/g, '<br>')}
-                    </div>`,
+                    htmlBody: formattedBody,
                     resumeBase64,
                     resumeName: resume.name
                 }),
@@ -638,18 +688,83 @@ export default function EmailPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold mb-2">Cover Letter</label>
+                                <label className="block text-sm font-bold mb-2">Email Body Type</label>
+                                <div className="flex items-center space-x-4 mb-2">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            checked={!isHtml}
+                                            onChange={() => setIsHtml(false)}
+                                            className="w-4 h-4 text-blue-600"
+                                        />
+                                        <span className="text-sm font-medium">Plain Text</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            checked={isHtml}
+                                            onChange={() => setIsHtml(true)}
+                                            className="w-4 h-4 text-blue-600"
+                                        />
+                                        <span className="text-sm font-medium">HTML</span>
+                                    </label>
+                                </div>
+                                {isHtml && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2">
+                                        <p className="text-xs text-yellow-800 font-medium">
+                                            ⚠️ HTML Mode: Paste your raw HTML code below. Use {'{company}'} and {'{jobTitle}'} for personalization.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold mb-2">Cover Letter / Email Body</label>
                                 <textarea
                                     value={coverLetter}
-                                    onChange={(e) => setCoverLetter(e.target.value)}
-                                    placeholder="Write your generic cover letter here. Use {company} and {jobTitle} for automatic personalization.&#10;&#10;Dear Hiring Manager at {company},&#10;&#10;I am writing to express my interest in the {jobTitle} position..."
-                                    rows={12}
+                                    onChange={handleCoverLetterChange}
+                                    placeholder={isHtml
+                                        ? "Paste your raw HTML here with {company} and {jobTitle} placeholders...\n\n<html>\n<body>\n  <p>Dear Hiring Manager at {company},</p>\n  <p>I'm interested in the {jobTitle} position...</p>\n</body>\n</html>"
+                                        : "Write your generic cover letter here. Use {company} and {jobTitle} for automatic personalization.\n\nDear Hiring Manager at {company},\n\nI am writing to express my interest in the {jobTitle} position..."
+                                    }
+                                    rows={16}
                                     className="w-full px-4 py-2 border rounded-lg font-mono text-sm"
+                                    style={{ whiteSpace: 'pre-wrap' }}
                                 />
                                 <p className="text-xs text-gray-600 mt-1">
-                                    This will be sent to all selected companies with automatic personalization
+                                    {isHtml
+                                        ? 'Paste complete HTML or HTML fragments. Use {company} and {jobTitle} for personalization.'
+                                        : 'This will be sent to all selected companies with automatic personalization using {company} and {jobTitle}.'
+                                    }
                                 </p>
                             </div>
+
+                            {/* Preview */}
+                            {coverLetter && (
+                                <div>
+                                    <label className="block text-sm font-bold mb-2">
+                                        Preview (with sample data)
+                                    </label>
+                                    <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-96 overflow-auto">
+                                        {isHtml ? (
+                                            <div dangerouslySetInnerHTML={{
+                                                __html: coverLetter
+                                                    .replace(/\{company\}/gi, 'Sample Company Inc.')
+                                                    .replace(/\{jobTitle\}/gi, 'Software Engineer')
+                                            }} />
+                                        ) : (
+                                            <div style={{ whiteSpace: 'pre-wrap' }}>
+                                                {coverLetter
+                                                    .replace(/\{company\}/g, 'Sample Company Inc.')
+                                                    .replace(/\{jobTitle\}/g, 'Software Engineer')}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                        Preview shows how your email will look with sample company name and job title
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <p className="text-sm text-blue-800 font-medium">
