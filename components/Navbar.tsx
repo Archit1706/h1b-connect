@@ -1,3 +1,4 @@
+// components/Navbar.tsx
 'use client';
 
 import Link from 'next/link';
@@ -5,6 +6,7 @@ import { usePathname } from 'next/navigation';
 
 export default function Navbar() {
     const pathname = usePathname();
+    const isEmailPage = pathname?.startsWith('/email');
 
     return (
         <nav className="bg-white shadow-md">
@@ -22,16 +24,34 @@ export default function Navbar() {
                             Features
                         </Link>
 
-                        {pathname === '/email' ? (
-                            <button
-                                onClick={() => {
-                                    document.cookie = 'token=; Max-Age=0; path=/';
-                                    window.location.href = '/';
-                                }}
-                                className="text-gray-800 font-medium hover:text-red-600 transition-colors"
-                            >
-                                Logout
-                            </button>
+                        {isEmailPage ? (
+                            <>
+                                {pathname !== '/email/test' && (
+                                    <Link
+                                        href="/email/test"
+                                        className="text-gray-800 font-medium hover:text-blue-600 transition-colors"
+                                    >
+                                        Test Email
+                                    </Link>
+                                )}
+                                {pathname !== '/email' && (
+                                    <Link
+                                        href="/email"
+                                        className="text-gray-800 font-medium hover:text-blue-600 transition-colors"
+                                    >
+                                        Email Tool
+                                    </Link>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        document.cookie = 'token=; Max-Age=0; path=/';
+                                        window.location.href = '/';
+                                    }}
+                                    className="text-gray-800 font-medium hover:text-red-600 transition-colors"
+                                >
+                                    Logout
+                                </button>
+                            </>
                         ) : (
                             <>
                                 <Link
