@@ -14,6 +14,7 @@ export interface LCARecord {
     VISA_CLASS?: string;
     EMPLOYER_NAME: string;
     JOB_TITLE: string;
+    JOB_DOMAIN?: string;
     SOC_CODE?: string;
     SOC_TITLE: string;
     EMPLOYER_CITY: string;

@@ -1,4 +1,3 @@
-// app/api/lca/filter-values/route.ts - OPTIMIZED
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
@@ -66,12 +65,12 @@ export async function GET(request: Request) {
 
         const jsonData = parseResult.data;
 
-        // Filterable columns
         const filterableColumns = [
             'CASE_STATUS',
             'VISA_CLASS',
             'JOB_TITLE',
             'SOC_TITLE',
+            'JOB_DOMAIN',
             'EMPLOYER_STATE',
             'EMPLOYER_CITY',
             'PW_WAGE_LEVEL',

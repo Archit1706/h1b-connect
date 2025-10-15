@@ -10,14 +10,14 @@ export default function Navbar() {
         <nav className="bg-white shadow-md">
             <div className="container mx-auto px-4">
                 <div className="flex justify-between items-center h-16">
-                    <Link href="/" className="text-2xl font-bold text-blue-600">
+                    <Link href="/" className="text-2xl font-bold text-blue-600 hover:text-blue-700">
                         H1B Connect
                     </Link>
 
                     <div className="flex items-center space-x-6">
                         <Link
                             href="/#about"
-                            className="text-gray-700 hover:text-blue-600"
+                            className="text-gray-800 font-medium hover:text-blue-600 transition-colors"
                         >
                             Features
                         </Link>
@@ -28,7 +28,7 @@ export default function Navbar() {
                                     document.cookie = 'token=; Max-Age=0; path=/';
                                     window.location.href = '/';
                                 }}
-                                className="text-gray-700 hover:text-blue-600"
+                                className="text-gray-800 font-medium hover:text-red-600 transition-colors"
                             >
                                 Logout
                             </button>
@@ -36,13 +36,13 @@ export default function Navbar() {
                             <>
                                 <Link
                                     href="/login"
-                                    className="text-gray-700 hover:text-blue-600"
+                                    className="text-gray-800 font-medium hover:text-blue-600 transition-colors"
                                 >
                                     Login
                                 </Link>
                                 <Link
                                     href="/register"
-                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                                    className="bg-blue-600 !text-white font-semibold px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                                 >
                                     Register
                                 </Link>

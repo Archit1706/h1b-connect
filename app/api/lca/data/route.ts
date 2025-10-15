@@ -1,4 +1,4 @@
-// app/api/lca/data/route.ts - OPTIMIZED VERSION
+// app/api/lca/data/route.ts
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
@@ -17,6 +17,7 @@ const ESSENTIAL_FIELDS = [
     'EMPLOYER_NAME',
     'JOB_TITLE',
     'SOC_TITLE',
+    'JOB_DOMAIN',
     'EMPLOYER_CITY',
     'EMPLOYER_STATE',
     'EMPLOYER_POSTAL_CODE',

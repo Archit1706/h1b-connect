@@ -1,4 +1,4 @@
-// components/MultiSelectFilter.tsx - OPTIMIZED
+// components/MultiSelectFilter.tsx
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -33,7 +33,6 @@ export default function MultiSelectFilter({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Memoize filtered options to avoid recomputing on every render
     const filteredOptions = useMemo(() => {
         if (!searchTerm) return options;
         const lowerSearch = searchTerm.toLowerCase();
@@ -42,7 +41,6 @@ export default function MultiSelectFilter({
         );
     }, [options, searchTerm]);
 
-    // Memoize selected set for O(1) lookup
     const selectedSet = useMemo(() => new Set(selectedValues), [selectedValues]);
 
     const handleToggle = (value: string) => {
@@ -57,55 +55,54 @@ export default function MultiSelectFilter({
         onChange([]);
     };
 
-    // Limit displayed options for performance
     const displayOptions = filteredOptions.slice(0, 200);
     const hasMore = filteredOptions.length > 200;
 
     return (
         <div className="relative" ref={dropdownRef}>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className="block text-sm font-bold text-gray-900 mb-2">
                 {label}
             </label>
 
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full px-4 py-2 text-left bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 text-left bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
             >
                 <span className="block truncate">
                     {selectedValues.length === 0 ? (
-                        <span className="text-gray-500">{placeholder}</span>
+                        <span className="text-gray-500 font-medium">{placeholder}</span>
                     ) : (
-                        <span className="font-semibold">
+                        <span className="font-bold text-gray-900">
                             {selectedValues.length} selected
                         </span>
                     )}
                 </span>
                 <span className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                 </span>
             </button>
 
             {isOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-80 overflow-hidden">
-                    <div className="p-2 border-b">
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-hidden">
+                    <div className="p-2 border-b border-gray-200">
                         <input
                             type="text"
                             placeholder="Search..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
                             autoFocus
                         />
                     </div>
 
                     {selectedValues.length > 0 && (
-                        <div className="p-2 border-b bg-gray-50">
+                        <div className="p-2 border-b border-gray-200 bg-gray-50">
                             <button
                                 onClick={handleClearAll}
-                                className="text-sm text-red-600 hover:text-red-800 font-semibold"
+                                className="text-sm text-red-600 hover:text-red-800 font-bold"
                             >
                                 Clear all ({selectedValues.length})
                             </button>
@@ -114,7 +111,7 @@ export default function MultiSelectFilter({
 
                     <div className="overflow-y-auto max-h-60">
                         {displayOptions.length === 0 ? (
-                            <div className="px-4 py-3 text-sm text-gray-700">
+                            <div className="px-4 py-3 text-sm text-gray-700 font-medium">
                                 No options found
                             </div>
                         ) : (
@@ -130,13 +127,13 @@ export default function MultiSelectFilter({
                                             onChange={() => handleToggle(option)}
                                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                         />
-                                        <span className="ml-3 text-sm">
+                                        <span className="ml-3 text-sm text-gray-900 font-medium">
                                             {option}
                                         </span>
                                     </label>
                                 ))}
                                 {hasMore && (
-                                    <div className="px-4 py-2 text-xs text-gray-500 bg-gray-50">
+                                    <div className="px-4 py-2 text-xs text-gray-600 bg-gray-50 font-medium">
                                         Showing first 200 options. Use search to narrow down.
                                     </div>
                                 )}
@@ -151,19 +148,19 @@ export default function MultiSelectFilter({
                     {selectedValues.slice(0, 5).map((value) => (
                         <span
                             key={value}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800"
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800"
                         >
                             {value.length > 20 ? value.substring(0, 20) + '...' : value}
                             <button
                                 onClick={() => handleToggle(value)}
-                                className="ml-2 text-blue-600 hover:text-blue-800 font-bold"
+                                className="ml-2 text-blue-700 hover:text-blue-900 font-bold"
                             >
                                 ×
                             </button>
                         </span>
                     ))}
                     {selectedValues.length > 5 && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-700">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-200 text-gray-800">
                             +{selectedValues.length - 5} more
                         </span>
                     )}

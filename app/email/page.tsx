@@ -1,10 +1,62 @@
-// app/email/page.tsx - MASS EMAIL VERSION
+// app/email/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import { LCARecord } from '@/types';
+
+// Color mapping for job domains
+const getDomainColor = (domain: string): string => {
+    const colorMap: Record<string, string> = {
+        'Software Engineering': 'bg-blue-100 text-blue-800',
+        'AI/ML': 'bg-purple-100 text-purple-800',
+        'Full-Stack': 'bg-indigo-100 text-indigo-800',
+        'Backend': 'bg-slate-100 text-slate-800',
+        'Frontend': 'bg-pink-100 text-pink-800',
+        'DevOps': 'bg-green-100 text-green-800',
+        'Data Engineering': 'bg-teal-100 text-teal-800',
+        'Database': 'bg-cyan-100 text-cyan-800',
+        'Mobile Development': 'bg-orange-100 text-orange-800',
+        'Security': 'bg-red-100 text-red-800',
+        'QA/Testing': 'bg-yellow-100 text-yellow-800',
+        'Product Management': 'bg-purple-100 text-purple-800',
+        'Project Management': 'bg-violet-100 text-violet-800',
+        'Business Analyst': 'bg-gray-100 text-gray-800',
+        'UX/UI Design': 'bg-fuchsia-100 text-fuchsia-800',
+        'Data Analyst': 'bg-emerald-100 text-emerald-800',
+        'Financial Analyst': 'bg-lime-100 text-lime-800',
+        'Accountant': 'bg-green-100 text-green-800',
+        'Management': 'bg-stone-100 text-stone-800',
+        'Research': 'bg-indigo-100 text-indigo-800',
+        'Mechanical Engineering': 'bg-amber-100 text-amber-800',
+        'Electrical Engineering': 'bg-yellow-100 text-yellow-800',
+        'Mechatronics': 'bg-orange-100 text-orange-800',
+        'Civil Engineering': 'bg-stone-100 text-stone-800',
+        'Chemical Engineering': 'bg-lime-100 text-lime-800',
+        'Industrial Engineering': 'bg-slate-100 text-slate-800',
+        'Biomedical Engineering': 'bg-rose-100 text-rose-800',
+        'Aerospace Engineering': 'bg-sky-100 text-sky-800',
+        'Hardware Engineering': 'bg-zinc-100 text-zinc-800',
+        'Network Engineering': 'bg-teal-100 text-teal-800',
+        'Systems Engineering': 'bg-blue-100 text-blue-800',
+        'IT Support': 'bg-cyan-100 text-cyan-800',
+        'Consultant': 'bg-violet-100 text-violet-800',
+        'Sales Engineer': 'bg-emerald-100 text-emerald-800',
+        'Sales/Marketing': 'bg-pink-100 text-pink-800',
+        'HR/Recruiting': 'bg-rose-100 text-rose-800',
+        'Legal': 'bg-slate-100 text-slate-800',
+        'Operations': 'bg-gray-100 text-gray-800',
+        'Content/Writing': 'bg-fuchsia-100 text-fuchsia-800',
+        'Architecture': 'bg-indigo-100 text-indigo-800',
+        'Academic/Teaching': 'bg-blue-100 text-blue-800',
+        'Healthcare': 'bg-red-100 text-red-800',
+        'Finance': 'bg-green-100 text-green-800',
+        'Other': 'bg-gray-100 text-gray-800'
+    };
+
+    return colorMap[domain] || 'bg-gray-100 text-gray-800';
+};
 
 export default function EmailPage() {
     const [filteredData, setFilteredData] = useState<LCARecord[]>([]);
@@ -291,6 +343,13 @@ export default function EmailPage() {
                     <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                         <h2 className="text-2xl font-semibold mb-4">Filter Target Companies</h2>
                         <div className="grid md:grid-cols-3 gap-6">
+                            {/* NEW: Job Domain Filter */}
+                            <MultiSelectFilter
+                                label="Job Domain"
+                                options={filterValues.JOB_DOMAIN || []}
+                                selectedValues={selectedFilters.JOB_DOMAIN || []}
+                                onChange={(values) => handleFilterChange('JOB_DOMAIN', values)}
+                            />
                             <MultiSelectFilter
                                 label="Job Title"
                                 options={filterValues.JOB_TITLE || []}
@@ -390,6 +449,7 @@ export default function EmailPage() {
                                                 </th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Company</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Job Title</th>
+                                                <th className="px-4 py-3 text-left text-sm font-bold">Domain</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Location</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Email</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Wage</th>
@@ -409,6 +469,11 @@ export default function EmailPage() {
                                                     </td>
                                                     <td className="px-4 py-3 text-sm font-medium">{record.EMPLOYER_NAME}</td>
                                                     <td className="px-4 py-3 text-sm">{record.JOB_TITLE}</td>
+                                                    <td className="px-4 py-3 text-sm">
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getDomainColor(record.JOB_DOMAIN || 'Other')}`}>
+                                                            {record.JOB_DOMAIN || 'N/A'}
+                                                        </span>
+                                                    </td>
                                                     <td className="px-4 py-3 text-sm">{record.EMPLOYER_CITY}, {record.EMPLOYER_STATE}</td>
                                                     <td className="px-4 py-3 text-sm text-blue-600">
                                                         {record.EMPLOYER_POC_EMAIL || 'N/A'}
