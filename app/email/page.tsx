@@ -1,7 +1,7 @@
 // app/email/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
 import MultiSelectFilter from '@/components/MultiSelectFilter';
 import { LCARecord } from '@/types';
@@ -58,6 +58,23 @@ const getDomainColor = (domain: string): string => {
     return colorMap[domain] || 'bg-gray-100 text-gray-800';
 };
 
+// Color mapping for visa case status
+const getVisaStatusColor = (status: string): string => {
+    const statusLower = status.toLowerCase();
+
+    if (statusLower.includes('certified') && !statusLower.includes('withdrawn')) {
+        return 'bg-green-100 text-green-800 border-green-200';
+    } else if (statusLower.includes('certified') && statusLower.includes('withdrawn')) {
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    } else if (statusLower.includes('withdrawn')) {
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    } else if (statusLower.includes('denied')) {
+        return 'bg-red-100 text-red-800 border-red-200';
+    } else {
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+    }
+};
+
 export default function EmailPage() {
     const [filteredData, setFilteredData] = useState<LCARecord[]>([]);
     const [filterValues, setFilterValues] = useState<any>({});
@@ -83,6 +100,12 @@ export default function EmailPage() {
     // Application tracking
     const [applications, setApplications] = useState<any[]>([]);
     const [showApplications, setShowApplications] = useState(false);
+    const [applicationsLoading, setApplicationsLoading] = useState(true);
+
+    // Memoized set of already applied case numbers for O(1) lookup
+    const appliedCaseNumbers = useMemo(() => {
+        return new Set(applications.map(app => app.caseNumber).filter(Boolean));
+    }, [applications]);
 
     useEffect(() => {
         loadFilterValues();
@@ -145,12 +168,15 @@ export default function EmailPage() {
     };
 
     const loadApplications = async () => {
+        setApplicationsLoading(true);
         try {
             const res = await fetch('/api/applications/track');
             const data = await res.json();
             setApplications(data.applications || []);
         } catch (error) {
             console.error('Error loading applications:', error);
+        } finally {
+            setApplicationsLoading(false);
         }
     };
 
@@ -179,6 +205,11 @@ export default function EmailPage() {
     };
 
     const toggleCompanySelection = (caseNumber: string) => {
+        // Don't allow selecting if already applied
+        if (appliedCaseNumbers.has(caseNumber)) {
+            return;
+        }
+
         const newSelected = new Set(selectedCompanies);
         if (newSelected.has(caseNumber)) {
             newSelected.delete(caseNumber);
@@ -191,7 +222,8 @@ export default function EmailPage() {
     const selectAllOnPage = () => {
         const newSelected = new Set(selectedCompanies);
         filteredData.forEach(record => {
-            if (record.EMPLOYER_POC_EMAIL) {
+            // Only select if has email and NOT already applied
+            if (record.EMPLOYER_POC_EMAIL && !appliedCaseNumbers.has(record.CASE_NUMBER)) {
                 newSelected.add(record.CASE_NUMBER);
             }
         });
@@ -218,17 +250,38 @@ export default function EmailPage() {
             return;
         }
 
-        if (!confirm(`Send ${selectedCompanies.size} emails?`)) {
+        // Filter out any already-applied positions (extra safety check)
+        const validSelections = Array.from(selectedCompanies).filter(
+            caseNum => !appliedCaseNumbers.has(caseNum)
+        );
+
+        if (validSelections.length === 0) {
+            alert('All selected companies have already been applied to!');
+            return;
+        }
+
+        if (validSelections.length !== selectedCompanies.size) {
+            const skipped = selectedCompanies.size - validSelections.length;
+            if (!confirm(`${skipped} companies were already applied to and will be skipped. Continue with ${validSelections.length} companies?`)) {
+                return;
+            }
+        }
+
+        if (!confirm(`Send ${validSelections.length} emails?\n\nNote: Emails will be sent with delays to prevent rate limiting.`)) {
             return;
         }
 
         setLoading(true);
-        setSendingProgress({ total: selectedCompanies.size, sent: 0, failed: 0 });
+        setSendingProgress({ total: validSelections.length, sent: 0, failed: 0 });
 
         try {
-            // Get all selected records with emails
+            // Get all selected records with emails, excluding already applied
             const recipients = filteredData
-                .filter(record => selectedCompanies.has(record.CASE_NUMBER) && record.EMPLOYER_POC_EMAIL)
+                .filter(record =>
+                    validSelections.includes(record.CASE_NUMBER) &&
+                    record.EMPLOYER_POC_EMAIL &&
+                    !appliedCaseNumbers.has(record.CASE_NUMBER)
+                )
                 .map(record => ({
                     email: record.EMPLOYER_POC_EMAIL,
                     companyName: record.EMPLOYER_NAME,
@@ -265,7 +318,8 @@ export default function EmailPage() {
                     console.error('Failed emails:', result.results.errors);
                 }
 
-                loadApplications();
+                // Reload applications to update the applied list
+                await loadApplications();
                 clearSelection();
             } else {
                 throw new Error(result.error || 'Failed to send emails');
@@ -278,6 +332,18 @@ export default function EmailPage() {
         }
     };
 
+    // Check if a record has been applied to
+    const isAlreadyApplied = (caseNumber: string) => {
+        return appliedCaseNumbers.has(caseNumber);
+    };
+
+    // Count available positions (not applied yet)
+    const availableCount = useMemo(() => {
+        return filteredData.filter(record =>
+            record.EMPLOYER_POC_EMAIL && !appliedCaseNumbers.has(record.CASE_NUMBER)
+        ).length;
+    }, [filteredData, appliedCaseNumbers]);
+
     return (
         <>
             <Navbar />
@@ -288,6 +354,11 @@ export default function EmailPage() {
                             <h1 className="text-4xl font-bold text-gray-900">Mass H1B Cold Email Tool</h1>
                             <p className="text-sm text-gray-700 font-medium mt-2">
                                 Database: <span className="font-bold text-blue-600">{totalRecords.toLocaleString()}</span> matching records
+                                {availableCount > 0 && (
+                                    <span className="ml-4 text-emerald-600 font-bold">
+                                        • {availableCount} available to apply
+                                    </span>
+                                )}
                                 {selectedCompanies.size > 0 && (
                                     <span className="ml-4 text-green-600 font-bold">
                                         • {selectedCompanies.size} selected
@@ -343,7 +414,6 @@ export default function EmailPage() {
                     <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                         <h2 className="text-2xl font-semibold mb-4">Filter Target Companies</h2>
                         <div className="grid md:grid-cols-3 gap-6">
-                            {/* NEW: Job Domain Filter */}
                             <MultiSelectFilter
                                 label="Job Domain"
                                 options={filterValues.JOB_DOMAIN || []}
@@ -408,7 +478,7 @@ export default function EmailPage() {
                                     onClick={selectAllOnPage}
                                     className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
                                 >
-                                    Select All on Page
+                                    Select All Available
                                 </button>
                                 <button
                                     onClick={clearSelection}
@@ -447,40 +517,64 @@ export default function EmailPage() {
                                                         className="w-4 h-4"
                                                     />
                                                 </th>
+                                                <th className="px-4 py-3 text-left text-sm font-bold">Status</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Company</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Job Title</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Domain</th>
+                                                <th className="px-4 py-3 text-left text-sm font-bold">Visa Status</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Location</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Email</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Wage</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredData.map((record, idx) => (
-                                                <tr key={idx} className="border-b hover:bg-gray-50">
-                                                    <td className="px-4 py-3">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedCompanies.has(record.CASE_NUMBER)}
-                                                            onChange={() => toggleCompanySelection(record.CASE_NUMBER)}
-                                                            disabled={!record.EMPLOYER_POC_EMAIL}
-                                                            className="w-4 h-4"
-                                                        />
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm font-medium">{record.EMPLOYER_NAME}</td>
-                                                    <td className="px-4 py-3 text-sm">{record.JOB_TITLE}</td>
-                                                    <td className="px-4 py-3 text-sm">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getDomainColor(record.JOB_DOMAIN || 'Other')}`}>
-                                                            {record.JOB_DOMAIN || 'N/A'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm">{record.EMPLOYER_CITY}, {record.EMPLOYER_STATE}</td>
-                                                    <td className="px-4 py-3 text-sm text-blue-600">
-                                                        {record.EMPLOYER_POC_EMAIL || 'N/A'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm font-bold">{record.WAGE_RATE_OF_PAY_FROM}</td>
-                                                </tr>
-                                            ))}
+                                            {filteredData.map((record, idx) => {
+                                                const alreadyApplied = isAlreadyApplied(record.CASE_NUMBER);
+                                                const canSelect = record.EMPLOYER_POC_EMAIL && !alreadyApplied;
+
+                                                return (
+                                                    <tr key={idx} className={`border-b ${alreadyApplied ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'}`}>
+                                                        <td className="px-4 py-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedCompanies.has(record.CASE_NUMBER)}
+                                                                onChange={() => toggleCompanySelection(record.CASE_NUMBER)}
+                                                                disabled={!canSelect}
+                                                                className="w-4 h-4 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                title={alreadyApplied ? 'Already applied' : !record.EMPLOYER_POC_EMAIL ? 'No email available' : ''}
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            {alreadyApplied ? (
+                                                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                                                    Applied ✓
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                                                    Available
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm font-medium">{record.EMPLOYER_NAME}</td>
+                                                        <td className="px-4 py-3 text-sm">{record.JOB_TITLE}</td>
+                                                        <td className="px-4 py-3 text-sm">
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getDomainColor(record.JOB_DOMAIN || 'Other')}`}>
+                                                                {record.JOB_DOMAIN || 'N/A'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm">
+                                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getVisaStatusColor(record.CASE_STATUS)}`}>
+                                                                {record.CASE_STATUS}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm">{record.EMPLOYER_CITY}, {record.EMPLOYER_STATE}</td>
+                                                        <td className="px-4 py-3 text-sm text-blue-600">
+                                                            {record.EMPLOYER_POC_EMAIL || 'N/A'}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm font-bold">{record.WAGE_RATE_OF_PAY_FROM}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -554,6 +648,13 @@ export default function EmailPage() {
                                 />
                                 <p className="text-xs text-gray-600 mt-1">
                                     This will be sent to all selected companies with automatic personalization
+                                </p>
+                            </div>
+
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p className="text-sm text-blue-800 font-medium">
+                                    ℹ️ <strong>Note:</strong> Emails will be sent with delays between each message to prevent rate limiting and ensure deliverability.
+                                    This process may take several minutes for large batches.
                                 </p>
                             </div>
 
