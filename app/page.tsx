@@ -157,7 +157,7 @@ export default function HomePage() {
             </p>
             <a
               href="/register"
-              className="bg-white text-blue-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 inline-block transition-colors"
+              className="bg-white !text-blue-600 font-bold px-8 py-3 rounded-lg hover:bg-gray-100 inline-block transition-colors"
             >
               Create Free Account
             </a>

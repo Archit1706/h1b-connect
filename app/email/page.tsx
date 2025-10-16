@@ -75,6 +75,192 @@ const getVisaStatusColor = (status: string): string => {
     }
 };
 
+// Info Modal Component
+interface InfoModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    record: LCARecord | null;
+}
+
+function InfoModal({ isOpen, onClose, record }: InfoModalProps) {
+    if (!isOpen || !record) return null;
+
+    // Generate LinkedIn search URL
+    const generateLinkedInSearchURL = () => {
+        const firstName = record.EMPLOYER_POC_FIRST_NAME || '';
+        const lastName = record.EMPLOYER_POC_LAST_NAME || '';
+        const company = record.EMPLOYER_NAME || '';
+        const jobTitle = record.EMPLOYER_POC_JOB_TITLE || 'HR';
+
+        const searchQuery = `${firstName} ${lastName} ${company} ${jobTitle}`.trim();
+        return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(searchQuery)}`;
+    };
+
+    // Format field name for display
+    const formatFieldName = (fieldName: string): string => {
+        return fieldName
+            .replace(/_/g, ' ')
+            .toLowerCase()
+            .replace(/\b\w/g, char => char.toUpperCase());
+    };
+
+    // Group fields by category
+    const fieldCategories = {
+        'Case Information': [
+            'CASE_NUMBER', 'CASE_STATUS', 'RECEIVED_DATE', 'DECISION_DATE',
+            'ORIGINAL_CERT_DATE', 'VISA_CLASS'
+        ],
+        'Company Information': [
+            'EMPLOYER_NAME', 'TRADE_NAME_DBA', 'EMPLOYER_ADDRESS1', 'EMPLOYER_ADDRESS2',
+            'EMPLOYER_CITY', 'EMPLOYER_STATE', 'EMPLOYER_POSTAL_CODE',
+            'EMPLOYER_PHONE', 'EMPLOYER_PHONE_EXT', 'EMPLOYER_FEIN', 'NAICS_CODE'
+        ],
+        'Contact Person': [
+            'EMPLOYER_POC_FIRST_NAME', 'EMPLOYER_POC_LAST_NAME',
+            'EMPLOYER_POC_MIDDLE_NAME', 'EMPLOYER_POC_JOB_TITLE',
+            'EMPLOYER_POC_ADDRESS1', 'EMPLOYER_POC_ADDRESS2',
+            'EMPLOYER_POC_CITY', 'EMPLOYER_POC_STATE', 'EMPLOYER_POC_POSTAL_CODE',
+            'EMPLOYER_POC_COUNTRY', 'EMPLOYER_POC_PROVINCE',
+            'EMPLOYER_POC_PHONE', 'EMPLOYER_POC_PHONE_EXT', 'EMPLOYER_POC_EMAIL'
+        ],
+        'Job Details': [
+            'JOB_TITLE', 'SOC_CODE', 'SOC_TITLE', 'JOB_DOMAIN',
+            'FULL_TIME_POSITION', 'BEGIN_DATE', 'END_DATE'
+        ],
+        'Wage Information': [
+            'WAGE_RATE_OF_PAY_FROM', 'WAGE_RATE_OF_PAY_TO', 'WAGE_UNIT_OF_PAY',
+            'PREVAILING_WAGE', 'PW_UNIT_OF_PAY', 'PW_TRACKING_NUMBER',
+            'PW_WAGE_LEVEL', 'PW_OES_YEAR', 'PW_OTHER_SOURCE',
+            'PW_OTHER_YEAR', 'PW_SURVEY_PUBLISHER', 'PW_SURVEY_NAME'
+        ],
+        'Employment Details': [
+            'TOTAL_WORKER_POSITIONS', 'NEW_EMPLOYMENT', 'CONTINUED_EMPLOYMENT',
+            'CHANGE_PREVIOUS_EMPLOYMENT', 'NEW_CONCURRENT_EMPLOYMENT',
+            'CHANGE_EMPLOYER', 'AMENDED_PETITION'
+        ],
+        'Worksite Information': [
+            'WORKSITE_WORKERS', 'WORKSITE_ADDRESS1', 'WORKSITE_ADDRESS2',
+            'WORKSITE_CITY', 'WORKSITE_COUNTY', 'WORKSITE_STATE', 'WORKSITE_POSTAL_CODE',
+            'TOTAL_WORKSITE_LOCATIONS'
+        ],
+        'Additional Information': [
+            'H_1B_DEPENDENT', 'WILLFUL_VIOLATOR', 'SUPPORT_H1B',
+            'STATUTORY_BASIS', 'APPENDIX_A_ATTACHED', 'PUBLIC_DISCLOSURE',
+            'AGENT_REPRESENTING_EMPLOYER', 'LAWFIRM_NAME_BUSINESS_NAME',
+            'STATE_OF_HIGHEST_COURT', 'NAME_OF_HIGHEST_STATE_COURT',
+            'SECONDARY_ENTITY', 'SECONDARY_ENTITY_BUSINESS_NAME',
+            'AGREE_TO_LC_STATEMENT'
+        ]
+    };
+
+    return (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={onClose}>
+            <div
+                className="relative top-10 mx-auto p-8 border w-full max-w-4xl shadow-lg rounded-lg bg-white"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-900">
+                            LCA Details
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                            Case Number: {record.CASE_NUMBER}
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-500 text-2xl leading-none font-semibold"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                {/* LinkedIn Search Button */}
+                {(record.EMPLOYER_POC_FIRST_NAME || record.EMPLOYER_POC_LAST_NAME) && (
+                    <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-semibold text-gray-800">HR Contact</p>
+                                <p className="text-lg font-bold text-gray-900">
+                                    {record.EMPLOYER_POC_FIRST_NAME} {record.EMPLOYER_POC_MIDDLE_NAME} {record.EMPLOYER_POC_LAST_NAME}
+                                </p>
+                                <p className="text-sm text-gray-600">{record.EMPLOYER_POC_JOB_TITLE || 'HR Representative'}</p>
+                            </div>
+                            <a
+                                href={generateLinkedInSearchURL()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                                </svg>
+                                Search on LinkedIn
+                            </a>
+                        </div>
+                    </div>
+                )}
+
+                {/* Content - Categorized Fields */}
+                <div className="max-h-[60vh] overflow-y-auto">
+                    {Object.entries(fieldCategories).map(([category, fields]) => {
+                        // Filter out empty fields
+                        const nonEmptyFields = fields.filter(field =>
+                            record[field] !== undefined &&
+                            record[field] !== null &&
+                            record[field] !== ''
+                        );
+
+                        if (nonEmptyFields.length === 0) return null;
+
+                        return (
+                            <div key={category} className="mb-6">
+                                <h4 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">
+                                    {category}
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {nonEmptyFields.map(field => (
+                                        <div key={field} className="text-sm">
+                                            <span className="font-semibold text-gray-700">
+                                                {formatFieldName(field)}:
+                                            </span>
+                                            <span className="ml-2 text-gray-900">
+                                                {field === 'EMPLOYER_POC_EMAIL' ? (
+                                                    <a href={`mailto:${record[field]}`} className="text-blue-600 hover:underline">
+                                                        {record[field]}
+                                                    </a>
+                                                ) : field === 'EMPLOYER_PHONE' || field === 'EMPLOYER_POC_PHONE' ? (
+                                                    <a href={`tel:${record[field]}`} className="text-blue-600 hover:underline">
+                                                        {record[field]}
+                                                    </a>
+                                                ) : (
+                                                    record[field]
+                                                )}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Footer */}
+                <div className="mt-6 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function EmailPage() {
     const [filteredData, setFilteredData] = useState<LCARecord[]>([]);
     const [filterValues, setFilterValues] = useState<any>({});
@@ -82,6 +268,10 @@ export default function EmailPage() {
     const [loading, setLoading] = useState(false);
     const [dataLoading, setDataLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Modal state
+    const [selectedRecordForModal, setSelectedRecordForModal] = useState<LCARecord | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -394,9 +584,21 @@ export default function EmailPage() {
         ).length;
     }, [filteredData, appliedCaseNumbers]);
 
+    const openModal = (record: LCARecord) => {
+        setSelectedRecordForModal(record);
+        setIsModalOpen(true);
+    };
+
     return (
         <>
             <Navbar />
+            {/* Info Modal */}
+            <InfoModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                record={selectedRecordForModal}
+            />
+
             <div className="min-h-screen bg-gray-50 py-8">
                 <div className="container mx-auto px-4">
                     <div className="flex justify-between items-center mb-8">
@@ -575,6 +777,7 @@ export default function EmailPage() {
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Location</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Email</th>
                                                 <th className="px-4 py-3 text-left text-sm font-bold">Wage</th>
+                                                <th className="px-4 py-3 text-left text-sm font-bold">Info</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -622,6 +825,15 @@ export default function EmailPage() {
                                                             {record.EMPLOYER_POC_EMAIL || 'N/A'}
                                                         </td>
                                                         <td className="px-4 py-3 text-sm font-bold">{record.WAGE_RATE_OF_PAY_FROM}</td>
+                                                        <td className="px-4 py-3">
+                                                            <button
+                                                                onClick={() => openModal(record)}
+                                                                className="text-blue-600 hover:text-blue-800 font-bold text-lg"
+                                                                title="View all details"
+                                                            >
+                                                                ⓘ
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}
